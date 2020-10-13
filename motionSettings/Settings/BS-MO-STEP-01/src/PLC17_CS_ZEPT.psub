@@ -1,0 +1,6 @@
+substitute "COORD=2"
+substitute "PLC=17"
+substitute "AP=1"
+substitute "AM=2"
+substitute "ASIZE=0"
+include "CS_aperture_slits.pmc"
