@@ -5,7 +5,9 @@ import serial
 import io
 import codecs
 
+# Configuration variables
 serial_port = 'COM6'
+coordinate_system = 2
 gap_pos_limit = 180
 gap_neg_limit = 0.5
 cen_pos_limit = 10.0
@@ -19,16 +21,12 @@ layout = [[sg.Text('Gap_RBV: '), sg.Text('', key='_gap_', size=(20, 1))],
          [sg.Button('GO'), sg.Button('STOP'), sg.Quit()]]
 
 # Create the window object
-window = sg.Window('Simple Clock').Layout(layout)
+window = sg.Window('Zepto quadrupole motion control').Layout(layout)
 
-
-def getTime():
-    return datetime.datetime.now().strftime('%H:%M:%S')
-    
 def getQVar(port,var):
     #Flush
     port.reset_input_buffer()
-    port.write(f'&2 Q{var}\r\n'.encode())
+    port.write(f'&{coordinate_system} Q{var}\r\n'.encode())
     port.flush()
     response = port.read_until(b'\r')
     
@@ -37,7 +35,8 @@ def getQVar(port,var):
     return float(response.strip(b'\x06'))
     
 def executeMove(port,gap,cen):
-
+    
+    # Keep demanded motion within limits
     if gap > gap_pos_limit:
         gap = gap_pos_limit
     if gap < gap_neg_limit:
@@ -47,38 +46,40 @@ def executeMove(port,gap,cen):
     if cen < cen_neg_limit:
         cen = cen_neg_limit
         
-    port.write(f'&2 Q78 = {gap}\r\n'.encode())
+    port.write(f'&{coordinate_system} Q78 = {gap}\r\n'.encode())
     port.flush()
-    port.write(f'&2 Q77 = {cen}\r\n'.encode())
+    port.write(f'&{coordinate_system} Q77 = {cen}\r\n'.encode())
     port.flush()
-    port.write(b'&2a\r\n')
+    port.write(f'&{coordinate_system}a\r\n'.encode())
     port.flush()
-    port.write(b'&2b10r\r\n')
+    port.write(f'&{coordinate_system}b10r\r\n'.encode())
     port.flush()
     port.reset_input_buffer()
     
-    
-    
 def main(gui_obj):
     
-    ser = serial.Serial(serial_port)  # open serial port
-    ser.baudrate = 38400
-    synced = False
+    try:
+        ser = serial.Serial(serial_port)  # open serial port
+        ser.baudrate = 38400
+    except:
+        sg.popup(f'Failed to open {serial_port}')
+        quit()
+        
     # Event loop
     while True:
         event, values = gui_obj.Read(timeout=10)
             
-        time.sleep(0.1)
         # Exits program cleanly if user clicks "X" or "Quit" buttons
         if event in (None,'Quit'):
+            ser.close()
             break
         if event == 'GO':
             if values[0].isnumeric() and values[1].isnumeric() :
                 executeMove(ser,float(values[0]),float(values[1]))
             else:
-                print("Invalid demand value\r")
+                sg.popup('Invalid demand position')
         if event == 'STOP':
-            ser.write(b'&2a\r\n')
+            ser.write(b'&{coordinate_system}a\r\n')
             ser.flush()
             ser.reset_input_buffer()
 
